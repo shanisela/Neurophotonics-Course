@@ -50,6 +50,7 @@ relDPF = readtable(relDPFfile);
 DPF807nm = DPFperTissue.DPF(strcmp(DPFperTissue.Tissue, tissueType)); %Finding the DPF at 807 for the required tissue type
 relDPFCoeff = interp1(relDPF.wavelength, relDPF.relDPFcoeff, wavelengths); %Find the relative DPF for the required wl
 DPF = DPF807nm .* relDPFCoeff; %calculate final DPF
+pathlength = (SDS.*DPF);
 
 %% Calculate optical densities
 I0 = intensities(1,:);
@@ -58,25 +59,38 @@ OD = log10(I0 ./ intensities);
 %% Calculate extinction coefficients for the given wavelengths
 epsilonHbR = interp1(extinctionCoefficients.wavelength, extinctionCoefficients.HHb, wavelengths);
 epsilonHbO = interp1(extinctionCoefficients.wavelength, extinctionCoefficients.HbO2, wavelengths);
+epsilonMat = [epsilonHbO.',epsilonHbR.'];
+
 
 %% Output
-dHbR = OD(:,1:20) ./ (epsilonHbR(1) * DPF(1) * SDS);
-dHbO = OD(:,21:end) ./ (epsilonHbO (2)* DPF(2) * SDS);
+dHbO = zeros(size(OD(:,1:20)));
+dHbR = zeros(size(OD(:,1:20)));
+for i = 1:20
+    % Extract data per channel
+    A = [OD(:, i), OD(:, i+20)].';
+    
+    % modifies Beer-Lambert equation
+    conc_changes = (1./pathlength) .* inv(epsilonMat) * (A);
+    
+    % Store results
+    dHbO(:, i) = conc_changes(1,:).';
+    dHbR(:, i) = conc_changes(2,:).';
+end
 
 %% Plot the specified channels
-figs = [];
+fig = [];
 if ~isempty(plotChannelIdx) && isvector(plotChannelIdx) 
     for ch = plotChannelIdx
-        fig = figure;
+        f = figure;
         plot(time, dHbR(:, ch), 'b');
         hold on;
         plot(time, dHbO(:, ch), 'r');
         hold off;
-        title(sprintf('Channel %d', ch));
+        title(sprintf("File name: %s, Channel %d", strrep(dataFile, '_',''),ch));
         xlabel('Time (s)');
         ylabel('Concentration Change');
         legend('dHbR', 'dHbO', 'Location', 'best');
-        figs = [figs, fig]; % Store the figure handle
+        fig = [fig, f]; % Store the figure handle
     end
 elseif isempty(plotChannelIdx)
     disp('No channels specified for plotting.');
