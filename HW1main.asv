@@ -1,40 +1,33 @@
 clc;clear;close all;
-% Loading the data
-
-data1 = load('FN_032_V1_Postdose1_Nback.mat');
-data2 = load('FN_032_V1_Postdose1_Nback.mat');
-
-DS1 =data1.SD.Lambda; %two wavelengths [nm]
-time1 = data1.t;
-intensityLow1 = data1.d(:,1:20);
-intensityHigh1 = data1.d(:,21:end);
-DS2 =data2.SD.Lambda; %two wavelengths [nm]
-time2 = data2.t;
-intensityLow2 = data2.d(:,1:20);
-intensityHigh2 = data2.d(:,21:end);
+% Loading the intensity meadata
+dataFileList = {'FN_032_V1_Postdose1_Nback.mat','FN_031_V2_Postdose2_Nback.mat'};
 
 SDS = 3; %Sourse-Detector Separation distance [cm]
-DPFperTissueFile  =  readtable("DPFperTissue.txt"); 
-relDPFfile = readtable("DPFperTissue.txt"); %relative DPF according to wavelength
+relDPF =  "RelativeDPFCoefficients.csv"; 
+DPFperTissue  = "DPFperTissue.txt"; %Relative DPF according to wavelength
+extinctionCoefficients = "ExtinctionCoefficientsData.csv"; %.csv file with the following columns : wavelength, Water, HbO2, HHb, FatSoybean
+tissueType = 'adult_head'; %Options: 'adult_forearm' \ 'baby_head' \ 'adult_head' \ 'adult_leg' 
+plotChannelIdx = [1,2];   %Vector indicating channels to plot. 
+for i = length(dataFileList)
+    [ dHbR , dHbO, fig ] = CalcNIRS(dataFileList{i}, SDS, tissueType, plotChannelIdx, extinctionCoefficients , DPFperTissue, relDPF );
+end 
 
 
+%% Question 2
 
-
-
-
-%% CalcNIRS - calculate and plot HbR HbO
-
-% 
-% plotChannelIdx - vector with numbers in the range of [1-20] indicating channels to plot. If empty - none is plotted. (default = [])
-%
-% extinctionCoefficientsFile - .csv file with the following columns : wavelength, Water, HbO2, HHb, FatSoybean
-% default = '.\ExtinctionCoefficientsData.csv' (if not passed or empty)
-
-% default = '.\DPFperTissue.txt' (if not passed or empty)
-
-% default = '.\RelativeDPFCoefficients.csv' (if not passed or empty)
-%
-% Output :
-% dHbR - HbR concentration change for all channels (nx20) where n is time vector length
-% dHbO - HbO concentration change for all channels (nx20) where n is time vector length
-% fig - handle to figure. Empty if plotChannelIdx==[].
+firstChannel = load(dataFile1).d (:,1);
+L = length(firstChannel);
+Fs = 7.8; % Sampling frequency in Hz
+% Fourier Transform
+Y = fft(firstChannel) / L;
+% Frequency axis
+f = (0:L-1) * Fs / L; % Frequency range
+% Only take the first half of the spectrum
+%Y = Y(1:floor(L/2));
+%f = f(1:floor(L/2));
+% Plot the Fourier Transform
+figure;
+plot(f, abs(Y));
+xlabel('Frequency (Hz)');
+ylabel('Magnitude');
+title('Fourier Transform of First Channel');
