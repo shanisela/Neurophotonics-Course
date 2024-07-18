@@ -40,18 +40,18 @@ for i = 1:numOfRecords
         % Compute mean of the filtered standard deviation
         localNoisePerFrame(k) = mean(stdDevFilteredFrame(:));
     end
-    noiseCell(i).LocalSpatialNoise_AvgFrames = mean(localNoisePerFrame);
+    noiseCell(i).LocalSpatialNoise_AvgFrames = mean2(localNoisePerFrame);
     disp(['Processing subfolder: ', noiseCell(i).RecordingName ]);
     
-    totalNoise = ((noiseCell(i).GlobalTemporalNois)^2+(noiseCell(i).LocalSpatialNoise_AvgInTime)^2)^0.5;
+    totalNoise = ((noiseCell(i).GlobalTemporalNois).^2+(noiseCell(i).LocalSpatialNoise_AvgInTime).^2)^0.5;
     fprintf('Total noise is %.2f\n', totalNoise)
-
+% Answer to question 5 
     if noiseCell(i).RecordingName == "WhitePaper_Gain24dB_expT0.5ms_BlackLevel0DU"
         q5ans = ((noiseCell(i).GlobalTemporalNois)^2)/ (mean2(rec));
-        compValue = ((2^12)/maxCapacity)*(10^(info.name.Gain/20));
+        compValue = ((2^nBits)/maxCapacity)*(10^(info.name.Gain/20));
         disp ([q5ans,compValue])
         imagesc(mean(rec,3))
-        colorbar
+        colorbar;
     end 
     
 end 
