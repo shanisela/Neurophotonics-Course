@@ -49,12 +49,12 @@ end
 % Get a list of TIFF files in the selected folders
 shortFilePattern = fullfile(shortFolderPath, '*.tiff');
 readNoiseFilePattern = fullfile(readNoiseFolderPath, '*.tiff');
-backgroungdFilePattern = fullfile(backgroundFolderPath, '*.tiff');
+backgroundFilePattern = fullfile(backgroundFolderPath, '*.tiff');
 longFilePattern = fullfile(longFolderPath, '*.tiff');
 
 shortTiffFiles = dir(shortFilePattern);
 readNoiseTiffFiles = dir(readNoiseFilePattern);
-backgroundTiffFiles = dir(backgroungdFilePattern);
+backgroundTiffFiles = dir(backgroundFilePattern);
 longTiffFiles = dir(longFilePattern);
 
 
@@ -74,67 +74,70 @@ mask = createMask(h);
 close;
 %% Part 3 
 % 3.Calculate Read Noise Matrix (read noise in each window)
-numFramesReadNoise = length(readNoiseTiffFiles); % Number of frames in Read Noise recordings
+%opening readnois nois frames
+numFramesReadNoise = length(readNoiseTiffFiles);
 readNoiseFrames = zeros([size(frame1), numFramesReadNoise]);
 
-% Read the frames from the Read Noise recordings and apply the mask
-maskedReadNoiseFrames = [];
 for i = 1:numFramesReadNoise
     readNoiseFileName = readNoiseTiffFiles(i).name;
     readNoiseFilePath = fullfile(readNoiseFolderPath, readNoiseFileName);
-    currentFrame = imread(readNoiseFilePath);
-    % Cast the mask to the same type as currentFrame
-    maskCasted = cast(mask, class(currentFrame));
-    % Apply the mask to the current frame
-    maskedFrame = currentFrame .* maskCasted; % Apply mask
-    maskedReadNoiseFrames = cat(3, maskedReadNoiseFrames, maskedFrame);
-  
+    readNoiseFrames(:,:,i) = imread(readNoiseFilePath);
 end
+readNois = std(readNoiseFrames,0,3);
 
-% Calculate the mean of the masked Read Noise frames
-meanReadNoise = mean(maskedReadNoiseFrames, 3);
-imshow(meanReadNoise)
+% Create a 7x7 averaging filter
+filter = ones(7, 7) / (7 * 7);
+
+% Apply the filter to the input matrix A
+reasNoisMatrix = imfilter(readNois, filter);
+
 
 
 %% part 4
 % 4. Calculate Pixels-Non-Uniformity (σ_sp)
-numFramesShortRecording = 500; % Number of frames with laser (adjust as necessary)
-laserFrames = zeros([size(frame1), numFramesShortRecording]);
 
-% Assuming the laser recordings start from the appropriate frame
+%opening background nois frames
+numFramesBackgroungNois = length(backgroundTiffFiles);
+backgroundNoiseFrames = zeros([size(frame1), numFramesBackgroungNois]);
+
+for i = 1:numFramesBackgroungNois
+    backgroundFileName = backgroundTiffFiles(i).name;
+    backgroundNoiseFilePath = fullfile(backgroundFolderPath, backgroundFileName);
+    backgroundNoiseFrames(:,:,i) = imread(backgroundNoiseFilePath);
+end
+backgroundNoisMatrix = mean(backgroundNoiseFrames,0,3);
+
+
+% Opening short recording frames
+numFramesShortRecording = 500; 
+shortFrames = zeros([size(frame1), numFramesShortRecording]);
 for i = 1:numFramesShortRecording
-    laserFileName = mainTiffFiles(400 + i).name; % Adjust if necessary
-    laserFilePath = fullfile(mainFolderPath, laserFileName);
-    laserFrames(:,:,i) = imread(laserFilePath);
+    laserFileName = shortTiffFiles.name(i); % Adjust if necessary
+    laserFilePath = fullfile(shortFolderPath, laserFileName);
+    shortFrames(:,:,i) = imread(laserFilePath);
 end
 
-% Average the frames
-meanLaserFrames = mean(laserFrames, 3);
+shortAverage = mean(shortFrames,3);
+minusBackground = shortAverage - backgroundNoisMatrix;
+nonUnif = stdfilt(minusBackground,true(7)).^2; %calc variance in 7X7 window
 
-% Load Dark Background frame (assuming the first 400 frames are Dark Background)
-numFramesDarkBackground = 400;
-darkBackgroundFrames = zeros([size(frame1), numFramesDarkBackground]);
-for i = 1:numFramesDarkBackground
-    darkBackgroundFileName = mainTiffFiles(i).name; % Adjust if necessary
-    darkBackgroundFilePath = fullfile(mainFolderPath, darkBackgroundFileName);
-    darkBackgroundFrames(:,:,i) = imread(darkBackgroundFilePath);
-end
-meanDarkBackground = mean(darkBackgroundFrames, 3);
 
-% Subtract the background
-correctedFrames = meanLaserFrames - meanDarkBackground;
-
-% Calculate variance in each window
-varianceMatrix = stdfilt(correctedFrames, ones(3)).^2; % Standard deviation filter
 
 %% Part 5
 % 5. Calculate G[DU/e]
-% Placeholder: Replace with actual calculation depending on your setup
-G = 1; % Dummy value
+gain = 24; %[dB]
+maxCapacity = 10500;  %[e]
+nBits = 12; %bits
 
+Gin = 10^(gain/20);
+Gbase = (2^nBits)/maxCapacity;
+G = Gbase * Gin; % [DU/e]
+
+
+%% Part 6
 % 6. For every frame, subtract the background
 for i = 1:numFramesShortRecording
-    laserFrames(:,:,i) = laserFrames(:,:,i) - meanDarkBackground;
+    shortFrames(:,:,i) = shortFrames(:,:,i) - backgroundNoisMatrix;
 end
 
 % Display results
@@ -144,3 +147,11 @@ disp('Variance Matrix:');
 disp(varianceMatrix);
 disp('G [DU/e]:');
 disp(G);
+
+%% Part 7
+% Calc Raw contrast per window
+% Define the 7x7 averaging filter
+filter = ones(7, 7) / (7 * 7);
+% Calculate the mean intensity in 7x7 windows
+meanIntensity7x7 = conv2(minusBackground, filter, 'same');
+k_raw_perWindow = stdfilt(shortFrames,true(7))^2 / meanIntensity7x7;
