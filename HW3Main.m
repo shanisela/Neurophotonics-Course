@@ -205,24 +205,6 @@ disp('Finished part 7')
 
 %% Part 8+9
 clc;
-% % Opening short recording frames
-% shortFrames = zeros([size(frame1), length(shortTiffFiles)]);
-% for i = 1:numFramesShortRecording
-%     laserFileName = shortTiffFiles(i).name; % Adjust if necessary
-%     laserFilePath = fullfile(shortFolderPath, laserFileName);
-%     shortFrames(:,:,i) = double(imread(laserFilePath))./16;
-% end
-% 
-% %Opening long recording frames
-% numFramesLongRecording = 500; 
-% longFrames = zeros([size(frame1), numFramesLongRecording]);
-% for i = 1:numFramesLongRecording
-%     laserFileName = longTiffFiles(i).name; % Adjust if necessary
-%     laserFilePath = fullfile(longFolderPath, laserFileName);
-%     longFrames(:,:,i) = double(imread(laserFilePath))./16;
-% end
-
-
 %Plot <Kf> vs time for short and long recordings
 numShortFrames = size(shortTiffFiles);
 numLongFrames = size(longTiffFiles);
